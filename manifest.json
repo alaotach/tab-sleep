@@ -1,0 +1,25 @@
+{
+  "manifest_version": 2,
+  "name": "Tab Sleep",
+  "version": "0.1",
+  "description": "Automatically sleeps inactive tabs to save memory.",
+  "permissions": [
+    "tabs",
+    "storage",
+    "alarms",
+    "contextMenus",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "48": "icons/icon.png"
+  }
+}
