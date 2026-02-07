@@ -1,5 +1,9 @@
+(async function restoreState() {
+  const data = await browser.storage.local.get("sleepingTabs");
+  sleepingTabs = data.sleepingTabs || {};
+})();
 const sleepTime = 10;
-const sleepingTabs = {};
+let sleepingTabs = {};
 
 browser.contextMenus.create({
     id: "sleep-tab",
@@ -7,19 +11,24 @@ browser.contextMenus.create({
     contexts: ["tab"],
 });
 
+
+
 async function sleep(tabId) {
     const tab = await browser.tabs.get(tabId);
     if (!tab || tab.active || tab.pinned) return;
+    if (tab.mutedInfo?.muted === false && tab.audible) return;
     if (sleepingTabs[tabId]) return;
     sleepingTabs[tabId] = {
         url: tab.url,
+        sleptAt: Date.now()
     };
+    await browser.storage.local.set({ sleepingTabs });
     await browser.tabs.update(tabId, {
         url: browser.runtime.getURL("sleep.html"),
     });
 }
 
-browser.runtime.onMessage.addListener((msg, sender) => {
+browser.runtime.onMessage.addListener(async (msg, sender) => {
     if (msg.type !== "WAKE_TAB") return;
     const tabId = sender.tab.id;
     const data = sleepingTabs[tabId];
@@ -27,7 +36,9 @@ browser.runtime.onMessage.addListener((msg, sender) => {
     delete sleepingTabs[tabId];
     browser.tabs.update(tabId, {
         url: data.url,
+        sleptAt: data.sleptAt,
     });
+    await browser.storage.local.set({ sleepingTabs });
 });
 
 browser.tabs.onActivated.addListener(async ({ tabId }) => {
@@ -36,6 +47,7 @@ browser.tabs.onActivated.addListener(async ({ tabId }) => {
     delete sleepingTabs[tabId];
     await browser.tabs.update(tabId, {
         url: data.url,
+        sleptAt: data.sleptAt,
     });
 });
 
@@ -64,5 +76,12 @@ browser.alarms.create("check-inactive-tabs", {
 browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "check-inactive-tabs") {
         autoSleep();
+    }
+});
+
+browser.tabs.onRemoved.addListener(async (tabId) => {
+    if (sleepingTabs[tabId]) {
+        delete sleepingTabs[tabId];
+        await browser.storage.local.set({ sleepingTabs });
     }
 });
