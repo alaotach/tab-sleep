@@ -3,53 +3,47 @@
 <head>
   <meta charset="utf-8" />
   <title>Tab Sleep Settings</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      padding: 16px;
-    }
-    input {
-      width: 80px;
-    }
-  </style>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div>
-    Tabs Slept: <span id="statCount">0</span>
-  </div>
-  <label>
-    Sleep tabs after
-    <input type="number" id="sleepTime" min="1" step="1" />
-    minutes
-  </label>
-  <label>
-    Force sleep all tabs
-    <button id="forceSleep">Sleep Now</button>
-  </label>
+  <div class="container">
+    <div class="stat-box">
+      Currently Slept: <span id="statCount">0</span>
+    </div>
 
-  <div>Sleep Tab:
-    <button id="sleepLeft">Sleep Left</button>
-    <button id="sleepRight">Sleep Right</button>
-  </div>
+    <div class="group">
+      <div class="row">
+        <span>Sleep tabs after:</span>
+        <div>
+          <input type="number" id="sleepTime" min="1" step="1" /> mins
+        </div>
+      </div>
+    </div>
 
-  <div>Wake Tab:
-    <button id="wakeLeft">Wake Left</button>
-    <button id="wakeRight">Wake Right</button>
-  </div>
+    <div class="group">
+      <div class="row-buttons">
+        <button id="sleepLeft">Sleep Left</button>
+        <button id="sleepRight">Sleep Right</button>
+      </div>
+      <button id="forceSleep" class="primary">Sleep All Now</button>
+    </div>
 
-  <label>
-    Wake all sleeping tabs
-    <button id="wakeButton">Wake All</button>
-  </label>
+    <div class="group">
+      <div class="row-buttons">
+        <button id="wakeLeft">Wake Left</button>
+        <button id="wakeRight">Wake Right</button>
+      </div>
+      <button id="wakeButton" class="danger">Wake All</button>
+    </div>
 
-  <hr>
-  <div class="whitelist">
-      <h4>Never Sleep These Sites:</h4>
-      <div>
-          <input type="text" id="input" placeholder="e.g. youtube.com">
-          <button id="add-white">Add</button>
+    <div class="group whitelist">
+      <h4>Never Sleep These Sites</h4>
+      <div class="row">
+        <input type="text" id="input" placeholder="e.g. *.youtube.com">
+        <button id="add-white" class="primary">Add</button>
       </div>
       <ul id="whitelistt"></ul>
+    </div>
   </div>
 
   <script src="popup.js"></script>
