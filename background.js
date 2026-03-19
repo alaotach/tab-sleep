@@ -2,6 +2,7 @@ let sleepTime = 10;
 let sleepingTabs = {};
 let alarmMin = Math.max(1, Math.min(5, Math.floor(sleepTime / 2)));
 const pageUrl = browser.runtime.getURL("sleep.html");
+let rec = false;
 
 function upTitle() {
     browser.contextMenus.update("sleep-tab", {
@@ -32,28 +33,21 @@ async function refrsChk() {
         browser.tabs.query({})
     ]);
     const storedTabs = stored.sleepingTabs || {};
-    const reconciled = {};
+    const res = {};
     for (const tab of all) {
         const p = parseUrl(tab.url);
         if (!p) continue;
         const item = storedTabs[tab.id] || p;
-        reconciled[tab.id] = {
+        res[tab.id] = {
             url: item.url,
             webName: item.webName,
+            pgTitle: item.pgTitle || "",
             sleptAt: item.sleptAt || Date.now()
         };
     }
-    sleepingTabs = reconciled;
+    sleepingTabs = res;
     await browser.storage.local.set({ sleepingTabs });
-    for (const tab of all) {
-        if (sleepingTabs[tab.id]) {
-            try {
-                await wakeTab(tab.id);
-            } catch (err) {
-                console.error(`failed to update ${tab.id}:`, err);
-            }
-        }
-    }
+    rec = true;
 })();
 
 browser.contextMenus.create({
@@ -118,10 +112,11 @@ function parseUrl(url) {
         const parsedUrl = new URL(url);
         const urll = parsedUrl.searchParams.get("url");
         const webName = parsedUrl.searchParams.get("webName");
+        const pgTitle = parsedUrl.searchParams.get("pgTitle");
         const sleptAt = Number(parsedUrl.searchParams.get("sleptAt"));
         const sleptAtt = Number.isFinite(sleptAt) ? sleptAt : Date.now();
         if (!urll) return null;
-        return { url: urll, webName, sleptAt: sleptAtt };
+        return { url: urll, webName, pgTitle, sleptAt: sleptAtt };
     } catch (err) {
         console.error(`failed ${url}:`, err);
         return null;
@@ -139,19 +134,21 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
         if (data) {
             return { 
                 webName: data.webName || getName(data.url, ""),
+                pgTitle: data.pgTitle || "sus!",
                 url: data.url
             };
         }
         const p = parseUrl(sender.tab.url);
         if (p) {
-            return { webName: p.webName || getName(p.url, ""), url: p.url };
+            return { webName: p.webName || getName(p.url, ""), pgTitle: p.pgTitle || "sus!", url: p.url };
         }
-        return { webName: "sus!", url: sender.tab.url };
+        return { webName: "sus!", pgTitle: "sus!", url: sender.tab.url };
 
     }
 });
 
 browser.tabs.onActivated.addListener(async ({ tabId }) => {
+    if (!rec) return;
     await wakeTab(tabId);
 });
 
@@ -216,12 +213,11 @@ browser.runtime.onMessage.addListener(async (msg) => {
 async function wakeAllTabs() {
     const allTabs = await browser.tabs.query({});
     for (const tab of allTabs) {
-        if (sleepingTabs[tab.id]) {
-            try {
-                await wakeTab(tab.id);
-            } catch (err) {
-                console.error(`failed to wake ${tab.id}:`, err);
-            }
+        if (!sleepingTabs[tab.id]) continue;
+        try {
+            await wakeTab(tab.id);
+        } catch (err) {
+            console.error(`failed to wake ${tab.id}:`, err);
         }
     }
 }
