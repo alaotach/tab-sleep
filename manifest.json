@@ -10,6 +10,11 @@
     "contextMenus",
     "<all_urls>"
   ],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon.png",
+    "default_title": "Tab Sleep"
+  },
   "background": {
     "scripts": ["background.js"]
   },

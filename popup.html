@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Tab Sleep Settings</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 16px;
+    }
+    input {
+      width: 80px;
+    }
+  </style>
+</head>
+<body>
+  <label>
+    Sleep tabs after
+    <input type="number" id="sleepTime" min="1" step="1" />
+    minutes
+  </label>
+  <label>
+    Force sleep all tabs
+    <button id="forceSleep">Sleep Now</button>
+  </label>
+
+  <label>
+    Wake all sleeping tabs
+    <button id="wakeButton">Wake All</button>
+  </label>
+
+  <script src="popup.js"></script>
+</body>
+</html>

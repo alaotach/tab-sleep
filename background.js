@@ -2,7 +2,13 @@
   const data = await browser.storage.local.get("sleepingTabs");
   sleepingTabs = data.sleepingTabs || {};
 })();
-const sleepTime = 10;
+(async function loadSettings() {
+  const data = await browser.storage.local.get("sleepTime");
+  if (typeof data.sleepTime === "number") {
+    sleepTime = data.sleepTime;
+  }
+})();
+let sleepTime = 10;
 let sleepingTabs = {};
 
 browser.contextMenus.create({
@@ -11,7 +17,29 @@ browser.contextMenus.create({
     contexts: ["tab"],
 });
 
+function getName(url, title) {
+    try {
+        const a = new URL(url).hostname.replace(/^www\./, "");
+        if (a) return a;
+    } catch (err) {
+        console.error(`${url}: `, err);
+    }
+    return title || "sus!";
+}
 
+async function wakeTab(tabId) {
+    const data = sleepingTabs[tabId];
+    if (!data?.url) return false;
+    delete sleepingTabs[tabId];
+    try {
+        await browser.tabs.update(tabId, { url: data.url });
+    } catch (error) {
+        sleepingTabs[tabId] = data;
+        throw error;
+    }
+    await browser.storage.local.set({ sleepingTabs });
+    return true;
+}
 
 async function sleep(tabId) {
     const tab = await browser.tabs.get(tabId);
@@ -20,6 +48,7 @@ async function sleep(tabId) {
     if (sleepingTabs[tabId]) return;
     sleepingTabs[tabId] = {
         url: tab.url,
+        webName: getName(tab.url, tab.title),
         sleptAt: Date.now()
     };
     await browser.storage.local.set({ sleepingTabs });
@@ -29,26 +58,22 @@ async function sleep(tabId) {
 }
 
 browser.runtime.onMessage.addListener(async (msg, sender) => {
-    if (msg.type !== "WAKE_TAB") return;
-    const tabId = sender.tab.id;
-    const data = sleepingTabs[tabId];
-    if (!data) return;
-    delete sleepingTabs[tabId];
-    browser.tabs.update(tabId, {
-        url: data.url,
-        sleptAt: data.sleptAt,
-    });
-    await browser.storage.local.set({ sleepingTabs });
+    if (!sender.tab?.id) return;
+    if (msg.type === "WAKE_TAB") {
+        await wakeTab(sender.tab.id);
+        return;
+    }
+    if (msg.type === "GET_TITLE") {
+        const data = sleepingTabs[sender.tab.id];
+        if (!data) return { webName: "Unknown site" };
+        return {
+            webName: data.webName || getName(data.url, "")
+        };
+    }
 });
 
 browser.tabs.onActivated.addListener(async ({ tabId }) => {
-    const data = sleepingTabs[tabId];
-    if (!data) return;
-    delete sleepingTabs[tabId];
-    await browser.tabs.update(tabId, {
-        url: data.url,
-        sleptAt: data.sleptAt,
-    });
+    await wakeTab(tabId);
 });
 
 browser.contextMenus.onClicked.addListener((info, tab) => {
@@ -69,6 +94,17 @@ async function autoSleep() {
     }
 }
 
+async function forceSleep() {
+    const allTabs = await browser.tabs.query({});
+    for (const tab of allTabs) {
+        if (tab.active || tab.pinned) continue;
+        if (sleepingTabs[tab.id]) continue;
+        sleep(tab.id);
+        //debug log
+        //console.log(`forced sleep ${tab.id}: (${tab.url})`);
+    }
+}
+
 browser.alarms.create("check-inactive-tabs", {
     periodInMinutes: 5,
 });
@@ -83,5 +119,37 @@ browser.tabs.onRemoved.addListener(async (tabId) => {
     if (sleepingTabs[tabId]) {
         delete sleepingTabs[tabId];
         await browser.storage.local.set({ sleepingTabs });
+    }
+});
+
+browser.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.sleepTime) {
+        sleepTime = changes.sleepTime.newValue;
+    }
+});
+
+browser.runtime.onMessage.addListener(async (msg) => {
+    if (msg.action === "forceSleep") {
+        await forceSleep();
+    }
+});
+
+async function wakeAllTabs() {
+    const allTabs = await browser.tabs.query({});
+    for (const tab of allTabs) {
+        if (sleepingTabs[tab.id]) {
+            try {
+                await wakeTab(tab.id);
+            } catch (err) {
+                console.error(`failed to wake ${tab.id}:`, err);
+            }
+        }
+    }
+}
+
+
+browser.runtime.onMessage.addListener(async (msg) => {
+    if (msg.action === "WAKE_ALL_TABS") {
+        await wakeAllTabs();
     }
 });
