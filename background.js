@@ -52,6 +52,16 @@ browser.contextMenus.create({
     title: `Sleep Tab for ${sleepTime} minutes`,
     contexts: ["tab"],
 });
+browser.contextMenus.create({
+    id: "sleep-left",
+    title: "Sleep Tabs to the Left",
+    contexts: ["tab"],
+});
+browser.contextMenus.create({
+    id: "sleep-right",
+    title: "Sleep Tabs to the Right",
+    contexts: ["tab"],
+});
 
 function getName(url, title) {
     try {
@@ -152,7 +162,20 @@ browser.tabs.onActivated.addListener(async ({ tabId }) => {
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (!tab?.id) return;
-    await sleep(tab.id, true);
+    if (info.menuId === "sleep-tab"){
+        await sleep(tab.id, true);
+    }
+    else if (info.menuId === "sleep-left" || info.menuId === "sleep-right") {
+        const allTabs = await browser.tabs.query({ windowId: tab.windowId });
+        for (const t of allTabs) {
+            let sleepIt = false;
+            if (info.menuId === "sleep-left" && t.index < tab.index) sleepIt = true;
+            if (info.menuId === "sleep-right" && t.index > tab.index) sleepIt = true;
+            if (sleepIt) {
+                await sleep(t.id, true);
+            }
+        }
+    }
 });
 
 async function autoSleep() {
@@ -206,6 +229,20 @@ browser.storage.onChanged.addListener(async (changes, area) => {
 browser.runtime.onMessage.addListener(async (msg) => {
     if (msg.action === "forceSleep") {
         await forceSleep();
+    }
+    if (msg.action === "SLEEP_LEFT" || msg.action === "SLEEP_RIGHT"){
+        const activeTabs = await browser.tabs.query({ active: true, currentWindow: true });
+        if (activeTabs.length === 0) return;
+        const activeTab = activeTabs[0];
+        const allTabs = await browser.tabs.query({ windowId: activeTab.windowId });
+        for (const t of allTabs) {
+            let sleepIt = false;
+            if (msg.action === "SLEEP_LEFT" && t.index < activeTab.index) sleepIt = true;
+            if (msg.action === "SLEEP_RIGHT" && t.index > activeTab.index) sleepIt = true;
+            if (sleepIt) {
+                await sleep(t.id, true);
+            }
+        }
     }
 });
 

@@ -19,6 +19,20 @@ wakeAllButton.addEventListener("click", () => {
   browser.runtime.sendMessage({ action: "WAKE_ALL_TABS" });
 });
 
+const sleepLeftBtn = document.getElementById("sleepLeft");
+if (sleepLeftBtn) {
+  sleepLeftBtn.addEventListener("click", () => {
+    browser.runtime.sendMessage({ action: "SLEEP_LEFT" });
+  });
+}
+
+const sleepRightBtn = document.getElementById("sleepRight");
+if (sleepRightBtn) {
+  sleepRightBtn.addEventListener("click", () => {
+    browser.runtime.sendMessage({ action: "SLEEP_RIGHT" });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const inputEl = document.getElementById("input");
   const addBtn = document.getElementById("add-white");
@@ -54,4 +68,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
   rdrList();
+});
+
+const sleepLft = document.getElementById("sleepLeft");
+sleepLft.addEventListener("click", async () => {
+  browser.runtime.sendMessage({ action: "SLEEP_LEFT" });
+});
+
+const sleepRgt = document.getElementById("sleepRight");
+sleepRgt.addEventListener("click", async () => {
+  browser.runtime.sendMessage({ action: "SLEEP_RIGHT" });
 });
