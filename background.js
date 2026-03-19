@@ -10,6 +10,7 @@
 })();
 let sleepTime = 10;
 let sleepingTabs = {};
+let alarmMin = Math.max(1, Math.fkiirt(sleepTime / 2));
 
 browser.contextMenus.create({
     id: "sleep-tab",
@@ -106,7 +107,7 @@ async function forceSleep() {
 }
 
 browser.alarms.create("check-inactive-tabs", {
-    periodInMinutes: 5,
+    periodInMinutes: alarmMin,
 });
 
 browser.alarms.onAlarm.addListener((alarm) => {
@@ -125,6 +126,12 @@ browser.tabs.onRemoved.addListener(async (tabId) => {
 browser.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && changes.sleepTime) {
         sleepTime = changes.sleepTime.newValue;
+        alarmMin = Math.max(1, Math.min(5, Math.floor(sleepTime / 2)));
+        browser.alarms.clear("check-inactive-tabs").then(() => {
+            browser.alarms.create("check-inactive-tabs", {
+                periodInMinutes: alarmMin,
+            });
+        });
     }
 });
 
