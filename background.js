@@ -99,6 +99,9 @@ async function wakeTab(tabId) {
         throw error;
     }
     await browser.storage.local.set({ sleepingTabs });
+    const stats = await browser.storage.local.get(["tabsSlept"]);
+    const count = stats.tabsSlept || 0;
+    await browser.storage.local.set({ tabsSlept: Math.max(0, count - 1) });
     return true;
 }
 
@@ -130,6 +133,9 @@ async function sleep(tabId, isManual = false) {
         sleptAt: Date.now()
     };
     await browser.storage.local.set({ sleepingTabs });
+    const stats = await browser.storage.local.get(["tabsSlept"]);
+    const count = stats.tabsSlept || 0;
+    await browser.storage.local.set({ tabsSlept: count + 1 });
     
     const iconUri = `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(tab.url)}&sz=32`;
 

@@ -1,4 +1,5 @@
 const input = document.getElementById("sleepTime");
+
 browser.storage.local.get("sleepTime").then((data) => {
   input.value = data.sleepTime ?? 30;
 });
@@ -48,10 +49,24 @@ if (wakeRBtn) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const tabsData = await browser.storage.local.get(["tabsSlept"]);
+  const count = tabsData.tabsSlept || 0;
+  const countEl = document.getElementById("statCount");
+  if (countEl) {
+    countEl.textContent = count;
+  }
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.tabsSlept) {
+      if (countEl) {
+        countEl.textContent = changes.tabsSlept.newValue || 0;
+      }
+    }
+  });
+
   const inputEl = document.getElementById("input");
   const addBtn = document.getElementById("add-white");
   const listEl = document.getElementById("whitelistt");
-  const data = await browser.storage.local.get("whitelist");
+  const data = await browser.storage.local.get(["whitelist"]);
   const white = data.whitelist || [];
   function rdrList(){
     listEl.innerHTML = "";
@@ -84,12 +99,3 @@ document.addEventListener("DOMContentLoaded", async () => {
   rdrList();
 });
 
-const sleepLft = document.getElementById("sleepLeft");
-sleepLft.addEventListener("click", async () => {
-  browser.runtime.sendMessage({ action: "SLEEP_LEFT" });
-});
-
-const sleepRgt = document.getElementById("sleepRight");
-sleepRgt.addEventListener("click", async () => {
-  browser.runtime.sendMessage({ action: "SLEEP_RIGHT" });
-});
