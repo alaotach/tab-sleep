@@ -135,14 +135,16 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     if (msg.type === "GET_TITLE") {
         const data = sleepingTabs[sender.tab.id];
         if (data) {
-            return { webName: data.webName || getName(data.url, "") 
-        };
-    }
+            return { 
+                webName: data.webName || getName(data.url, ""),
+                url: data.url
+            };
+        }
         const p = parseUrl(sender.tab.url);
         if (p) {
-            return { webName: p.webName || getName(p.url, "") };
+            return { webName: p.webName || getName(p.url, ""), url: p.url };
         }
-        return { webName: "sus!" };
+        return { webName: "sus!", url: sender.tab.url };
 
     }
 });

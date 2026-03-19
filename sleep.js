@@ -1,3 +1,10 @@
+function setIcon(url) {
+    if (!url) return;
+    const icon = document.querySelector('link[rel="icon"]');
+    if (!icon) return;
+    icon.href = "http://www.google.com/s2/favicons?domain=" + encodeURIComponent(url) + "&sz=64";
+}
+
 async function loadInfo() {
     try {
         const info = await browser.runtime.sendMessage({ type: "GET_TITLE" });
@@ -5,6 +12,7 @@ async function loadInfo() {
         if (el && info?.webName) {
             el.textContent = info.webName;
         }
+        setIcon(info?.url);
     } catch (error) {
         const el = document.getElementById("webName");
         if (el) el.textContent = "Unknown site";
