@@ -83,7 +83,13 @@ async function sleep(tabId, isManual = false) {
     if (tab.url.startsWith("chrome://") || tab.url.startsWith("about:") || tab.url.startsWith("moz-extension://")) return;
     try {
         const url = new URL(tab.url);
-        const isWhite = whitelist.some((w) => url.hostname.includes(w) || tab.url.includes(w));
+        const isWhite = whitelist.some((w) => {
+            const cln = w.startsWith('*.') ? w.substring(2) : w;
+            if (cln.includes('/')) {
+                return tab.url.includes(cln);
+            }
+            return url.hostname === cln || url.hostname.endsWith('.' + cln);
+        });
         if (isWhite) return;
     } catch (err) {
         console.error(err);
