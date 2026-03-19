@@ -62,6 +62,21 @@ browser.contextMenus.create({
     title: "Sleep Tabs to the Right",
     contexts: ["tab"],
 });
+browser.contextMenus.create({
+    id: "wake-left",
+    title: "Wake Tabs to the Left",
+    contexts: ["tab"],
+});
+browser.contextMenus.create({
+    id: "wake-right",
+    title: "Wake Tabs to the Right",
+    contexts: ["tab"],
+});
+browser.contextMenus.create({
+    id: "wake-all",
+    title: "Wake All Tabs",
+    contexts: ["tab"],
+});
 
 function getName(url, title) {
     try {
@@ -162,17 +177,37 @@ browser.tabs.onActivated.addListener(async ({ tabId }) => {
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (!tab?.id) return;
-    if (info.menuId === "sleep-tab"){
+    const action = info.menuItemId || info.menuId;
+    
+    if (action === "sleep-tab"){
         await sleep(tab.id, true);
     }
-    else if (info.menuId === "sleep-left" || info.menuId === "sleep-right") {
+    else if (action === "sleep-left" || action === "sleep-right") {
         const allTabs = await browser.tabs.query({ windowId: tab.windowId });
         for (const t of allTabs) {
             let sleepIt = false;
-            if (info.menuId === "sleep-left" && t.index < tab.index) sleepIt = true;
-            if (info.menuId === "sleep-right" && t.index > tab.index) sleepIt = true;
+            if (action === "sleep-left" && t.index < tab.index) sleepIt = true;
+            if (action === "sleep-right" && t.index > tab.index) sleepIt = true;
             if (sleepIt) {
                 await sleep(t.id, true);
+            }
+        }
+    }
+    else if (action === "wake-all") {
+        await wakeAllTabs();
+    }
+    else if (action === "wake-left" || action === "wake-right") {
+        const allTabs = await browser.tabs.query({ windowId: tab.windowId });
+        for (const t of allTabs) {
+            let wakeIt = false;
+            if (action === "wake-left" && t.index < tab.index) wakeIt = true;
+            if (action === "wake-right" && t.index > tab.index) wakeIt = true;
+            if (wakeIt && sleepingTabs[t.id]) {
+                try {
+                    await wakeTab(t.id);
+                } catch (e) {
+                    console.error(t.id, e);
+                }
             }
         }
     }
@@ -262,5 +297,23 @@ async function wakeAllTabs() {
 browser.runtime.onMessage.addListener(async (msg) => {
     if (msg.action === "WAKE_ALL_TABS") {
         await wakeAllTabs();
+    }
+    if (msg.action === "WAKE_LEFT" || msg.action === "WAKE_RIGHT"){
+        const activeTabs = await browser.tabs.query({ active: true, currentWindow: true });
+        if (activeTabs.length === 0) return;
+        const activeTab = activeTabs[0];
+        const allTabs = await browser.tabs.query({ windowId: activeTab.windowId });
+        for (const t of allTabs) {
+            let wakeIt = false;
+            if (msg.action === "WAKE_LEFT" && t.index < activeTab.index) wakeIt = true;
+            if (msg.action === "WAKE_RIGHT" && t.index > activeTab.index) wakeIt = true;
+            if (wakeIt && sleepingTabs[t.id]) {
+                try {
+                    await wakeTab(t.id);
+                } catch (e) {
+                    console.error(t.id, e);
+                }
+            }
+        }
     }
 });

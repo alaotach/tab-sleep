@@ -33,6 +33,20 @@ if (sleepRightBtn) {
   });
 }
 
+const wakeLBtn = document.getElementById("wakeLeft");
+if (wakeLBtn) {
+  wakeLBtn.addEventListener("click", () => {
+    browser.runtime.sendMessage({ action: "WAKE_LEFT" });
+  });
+}
+
+const wakeRBtn = document.getElementById("wakeRight");
+if (wakeRBtn) {
+  wakeRBtn.addEventListener("click", () => {
+    browser.runtime.sendMessage({ action: "WAKE_RIGHT" });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const inputEl = document.getElementById("input");
   const addBtn = document.getElementById("add-white");
