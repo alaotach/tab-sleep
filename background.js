@@ -1,7 +1,6 @@
 let sleepTime = 10;
 let sleepingTabs = {};
 let alarmMin = Math.max(1, Math.min(5, Math.floor(sleepTime / 2)));
-const pageUrl = browser.runtime.getURL("sleep.html");
 let rec = false;
 
 function upTitle() {
@@ -35,15 +34,9 @@ async function refrsChk() {
     const storedTabs = stored.sleepingTabs || {};
     const res = {};
     for (const tab of all) {
-        const p = parseUrl(tab.url);
-        if (!p) continue;
-        const item = storedTabs[tab.id] || p;
-        res[tab.id] = {
-            url: item.url,
-            webName: item.webName,
-            pgTitle: item.pgTitle || "",
-            sleptAt: item.sleptAt || Date.now()
-        };
+        if (storedTabs[tab.id] && storedTabs[tab.id].url === tab.url) {
+            res[tab.id] = storedTabs[tab.id];
+        }
     }
     sleepingTabs = res;
     await browser.storage.local.set({ sleepingTabs });
@@ -68,10 +61,10 @@ function getName(url, title) {
 
 async function wakeTab(tabId) {
     const data = sleepingTabs[tabId];
-    if (!data?.url) return false;
+    if (!data) return false;
     delete sleepingTabs[tabId];
     try {
-        await browser.tabs.update(tabId, { url: data.url });
+        await browser.tabs.reload(tabId);
     } catch (error) {
         sleepingTabs[tabId] = data;
         throw error;
@@ -80,11 +73,14 @@ async function wakeTab(tabId) {
     return true;
 }
 
-async function sleep(tabId) {
+async function sleep(tabId, isManual = false) {
     const tab = await browser.tabs.get(tabId);
-    if (!tab || tab.active || tab.pinned) return;
-    if (tab.mutedInfo?.muted === false && tab.audible) return;
+    if (!tab || tab.pinned) return;
+    if (tab.url.startsWith("chrome://") || tab.url.startsWith("about:") || tab.url.startsWith("moz-extension://")) return;
+    if (!isManual && tab.active) return;
+    if (!isManual && tab.audible) return;
     if (sleepingTabs[tabId]) return;
+    
     sleepingTabs[tabId] = {
         url: tab.url,
         webName: getName(tab.url, tab.title),
@@ -92,34 +88,35 @@ async function sleep(tabId) {
         sleptAt: Date.now()
     };
     await browser.storage.local.set({ sleepingTabs });
-    await browser.tabs.update(tabId, {
-        url: makeUrl(sleepingTabs[tabId])
-    });
-}
+    
+    const iconUri = `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(tab.url)}&sz=32`;
 
-function makeUrl(data) {
-    const param = new URLSearchParams();
-    param.set("url", data.url);
-    param.set("webName", data.webName);
-    param.set("pgTitle", data.pgTitle);
-    param.set("sleptAt", data.sleptAt);
-    return `${pageUrl}?${param.toString()}`;
-}
+    const code = `
+        (() => {
+            const iconUri = ${JSON.stringify(iconUri)};
+            const tabTitle = ${JSON.stringify(sleepingTabs[tabId].pgTitle)};
+            const webName = ${JSON.stringify(sleepingTabs[tabId].webName)};
+            function esc(str) { 
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+            try {
+                document.documentElement.innerHTML = "<head><meta charset='UTF-8'><link rel='icon' href='" + iconUri + "'><title>Zzz... " + esc(tabTitle) + "</title><style>body { background: #0f0f0f; color: #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; margin: 0; cursor: pointer; } .box { padding: 40px; border: 1px solid #333; border-radius: 10px; background: #1a1a1a; text-align: center; pointer-events: none; } img { width: 48px; height: 48px; margin-bottom: 20px; border-radius: 8px; } h2 { margin: 0 0 10px 0; font-weight: normal; } p { color: #888; margin: 0; } body:hover .box { border-color: #555; }</style></head><body><div class='box'><img src='" + iconUri + "' alt='icon'><h2>This tab is sleeping: <strong>" + esc(webName) + "</strong></h2><p>Click anywhere (or switch to this tab) to wake it up.</p></div></body>";
+            } catch(e) {
+                document.body.innerHTML = "<div style='background:#0f0f0f;color:#ccc;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;margin:0;position:fixed;top:0;left:0;width:100%;z-index:999999999;cursor:pointer;'><div style='padding:40px;border:1px solid #333;border-radius:10px;background:#1a1a1a;text-align:center;pointer-events:none;'><img src='" + faviconUrl + "' style='width:48px;height:48px;margin-bottom:20px;border-radius:8px;'><h2>This tab is sleeping: <strong>" + esc(webName) + "</strong></h2><p style='color:#888;margin:0;'>Click anywhere (or switch to this tab) to wake it up.</p></div></div>";
+            }
+            document.documentElement.addEventListener('click', () => {
+                const api = typeof browser !== 'undefined' ? browser : chrome;
+                api.runtime.sendMessage({type: "WAKE_TAB"});
+            });
+        })();
+    `;
 
-function parseUrl(url) {
-    if (!url || !url.startsWith(pageUrl)) return null;
     try {
-        const parsedUrl = new URL(url);
-        const urll = parsedUrl.searchParams.get("url");
-        const webName = parsedUrl.searchParams.get("webName");
-        const pgTitle = parsedUrl.searchParams.get("pgTitle");
-        const sleptAt = Number(parsedUrl.searchParams.get("sleptAt"));
-        const sleptAtt = Number.isFinite(sleptAt) ? sleptAt : Date.now();
-        if (!urll) return null;
-        return { url: urll, webName, pgTitle, sleptAt: sleptAtt };
+        await browser.tabs.executeScript(tabId, { code: code });
     } catch (err) {
-        console.error(`failed ${url}:`, err);
-        return null;
+        delete sleepingTabs[tabId];
+        await browser.storage.local.set({ sleepingTabs });
+        console.error("Could not inject sleep page", err);
     }
 }
 
@@ -128,22 +125,6 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     if (msg.type === "WAKE_TAB") {
         await wakeTab(sender.tab.id);
         return;
-    }
-    if (msg.type === "GET_TITLE") {
-        const data = sleepingTabs[sender.tab.id];
-        if (data) {
-            return { 
-                webName: data.webName || getName(data.url, ""),
-                pgTitle: data.pgTitle || "sus!",
-                url: data.url
-            };
-        }
-        const p = parseUrl(sender.tab.url);
-        if (p) {
-            return { webName: p.webName || getName(p.url, ""), pgTitle: p.pgTitle || "sus!", url: p.url };
-        }
-        return { webName: "sus!", pgTitle: "sus!", url: sender.tab.url };
-
     }
 });
 
@@ -154,7 +135,7 @@ browser.tabs.onActivated.addListener(async ({ tabId }) => {
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (!tab?.id) return;
-    await sleep(tab.id);
+    await sleep(tab.id, true);
 });
 
 async function autoSleep() {
@@ -166,7 +147,7 @@ async function autoSleep() {
         if (sleepingTabs[tab.id]) continue;
         const inactiveTime = (now - tab.lastAccessed) / 60000;
         if (inactiveTime > sleepTime) {
-            await sleep(tab.id);
+            await sleep(tab.id, false);
         }
     }
 }
@@ -176,9 +157,7 @@ async function forceSleep() {
     for (const tab of allTabs) {
         if (tab.active || tab.pinned) continue;
         if (sleepingTabs[tab.id]) continue;
-        await sleep(tab.id);
-        //debug log
-        //console.log(`forced sleep ${tab.id}: (${tab.url})`);
+        await sleep(tab.id, true);
     }
 }
 
