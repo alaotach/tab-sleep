@@ -2,6 +2,7 @@ let sleepTime = 10;
 let sleepingTabs = {};
 let alarmMin = Math.max(1, Math.min(5, Math.floor(sleepTime / 2)));
 let rec = false;
+let whitelist = [];
 
 function upTitle() {
     browser.contextMenus.update("sleep-tab", {
@@ -18,10 +19,13 @@ async function refrsChk() {
 }
 
 (async function loadSettings() {
-    const data = await browser.storage.local.get("sleepTime");
+    const data = await browser.storage.local.get(["sleepTime", "whitelist"]);
     if (typeof data.sleepTime === "number") {
         sleepTime = data.sleepTime;
         alarmMin = Math.max(1, Math.min(5, Math.floor(sleepTime / 2)));
+    }
+    if (data.whitelist) {
+        whitelist = data.whitelist;
     }
     upTitle();
     await refrsChk();
@@ -77,6 +81,13 @@ async function sleep(tabId, isManual = false) {
     const tab = await browser.tabs.get(tabId);
     if (!tab || tab.pinned) return;
     if (tab.url.startsWith("chrome://") || tab.url.startsWith("about:") || tab.url.startsWith("moz-extension://")) return;
+    try {
+        const url = new URL(tab.url);
+        const isWhite = whitelist.some((w) => url.hostname.includes(w) || tab.url.includes(w));
+        if (isWhite) return;
+    } catch (err) {
+        console.error(err);
+    }
     if (!isManual && tab.active) return;
     if (!isManual && tab.audible) return;
     if (sleepingTabs[tabId]) return;
@@ -180,6 +191,9 @@ browser.storage.onChanged.addListener(async (changes, area) => {
         alarmMin = Math.max(1, Math.min(5, Math.floor(sleepTime / 2)));
         upTitle();
         await refrsChk();
+    }
+    if (changes.whitelist) {
+        whitelist = changes.whitelist.newValue || [];
     }
 });
 
