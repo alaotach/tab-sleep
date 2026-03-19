@@ -94,6 +94,7 @@ async function sleep(tabId) {
     sleepingTabs[tabId] = {
         url: tab.url,
         webName: getName(tab.url, tab.title),
+        pgTitle: tab.title || "sus!",
         sleptAt: Date.now()
     };
     await browser.storage.local.set({ sleepingTabs });
@@ -106,6 +107,7 @@ function makeUrl(data) {
     const param = new URLSearchParams();
     param.set("url", data.url);
     param.set("webName", data.webName);
+    param.set("pgTitle", data.pgTitle);
     param.set("sleptAt", data.sleptAt);
     return `${pageUrl}?${param.toString()}`;
 }

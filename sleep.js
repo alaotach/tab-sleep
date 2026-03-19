@@ -9,13 +9,14 @@ async function loadInfo() {
     try {
         const info = await browser.runtime.sendMessage({ type: "GET_TITLE" });
         const el = document.getElementById("webName");
-        if (el && info?.webName) {
-            el.textContent = info.webName;
-        }
+        const name = info?.pgTitle || info?.webName || "sus!";
+        if (el) el.textContent = name;
+        document.title = `${name} - Sleeping`;
         setIcon(info?.url);
     } catch (error) {
         const el = document.getElementById("webName");
-        if (el) el.textContent = "Unknown site";
+        if (el) el.textContent = "sus!";
+        document.title = "sus - Sleeping";
     }
 }
 
