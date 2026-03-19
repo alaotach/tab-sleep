@@ -95,7 +95,7 @@ async function sleep(tabId, isManual = false) {
         console.error(err);
     }
     if (!isManual && tab.active) return;
-    if (!isManual && tab.audible) return;
+    if (tab.audible) return;
     if (sleepingTabs[tabId]) return;
     
     sleepingTabs[tabId] = {
